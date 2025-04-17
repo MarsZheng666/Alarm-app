@@ -15,7 +15,8 @@ final class AlarmModel: NSObject, ObservableObject {
     /// 单例实例，整个 App 共享
     static let shared = AlarmModel()
     
-    // MARK: - 可发布状态
+    /// 闹钟铃声音量（0.0–1.0），默认为 0.5
+    @Published var alarmVolume: Double = 0.5
     
     /// 闹钟开关，打开时会调度通知，关闭时移除通知
     @Published var alarmOn: Bool = true {
@@ -35,6 +36,8 @@ final class AlarmModel: NSObject, ObservableObject {
     @Published var selectedSound: String = "Anticipate"
     /// 选中的铃声文件扩展名
     @Published var selectedExt: String = "caf"
+    //自选铃声URL
+    @Published var selectedURL: URL? = nil
     
     /// 私有化构造器，设置通知代理并请求权限
     private override init() {
@@ -42,7 +45,19 @@ final class AlarmModel: NSObject, ObservableObject {
         let center = UNUserNotificationCenter.current()
         center.delegate = self
         requestPermission()
+        
+        // 监听 alarmVolume 改变，实时更新正在播放的音量
+        $alarmVolume
+            .sink { vol in
+                AlarmPlayer.shared.setVolume(vol)
+            }
+            .store(in: &cancellables)
     }
+    
+    
+   
+
+    private var cancellables = Set<AnyCancellable>()
     
     // MARK: - 权限请求
     
@@ -71,10 +86,17 @@ final class AlarmModel: NSObject, ObservableObject {
         let content = UNMutableNotificationContent()
         content.title = "⏰ Wake Up"
         content.body  = "Time to wake up!"
-        // 使用自定义铃声
-        content.sound = UNNotificationSound(
-            named: UNNotificationSoundName("\(selectedSound).\(selectedExt)")
-        )
+        
+        if let url = selectedURL {
+            // 自定义文件：放在 Library/Sounds 下即可用 URL
+            let soundName = UNNotificationSoundName(url.lastPathComponent)
+            content.sound = UNNotificationSound(named: soundName)
+        } else {
+            // Bundle 文件
+            content.sound = UNNotificationSound(
+                named: UNNotificationSoundName("\(selectedSound).\(selectedExt)")
+            )
+        }
         
         // 构造触发时间：每天的 wakeHour:wakeMinute
         var comps = DateComponents()
@@ -107,20 +129,30 @@ extension AlarmModel: UNUserNotificationCenterDelegate {
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler:
-            @escaping (UNNotificationPresentationOptions) -> Void
+        @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         // 如果闹钟开启，则播放自定义铃声
         if alarmOn {
-            AlarmPlayer.shared.playAlarm(
-                named: selectedSound,
-                ext: selectedExt
-            )
-            // 如果 snoozeOn 打开，则振动
-            if snoozeOn {
-                AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
+            if let url = selectedURL {
+                AlarmPlayer.shared.playAlarmByURL(fileURL: url,
+                                             loops: 0,
+                                             volume: alarmVolume)
+            } else {
+                AlarmPlayer.shared.playAlarmByName(named:  selectedSound,
+                                             ext:    selectedExt,
+                                             loops:  0,
+                                             volume: alarmVolume)
             }
+        }
+        
+        // 如果 snoozeOn 打开，则振动
+        if snoozeOn {
+            AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
         }
         // 仅展示横幅，不播放系统默认声音
         completionHandler([.banner])
     }
 }
+        
+
+

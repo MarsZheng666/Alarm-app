@@ -13,6 +13,7 @@ import UniformTypeIdentifiers
 struct SoundSelectionView: View {
     @Binding var selectedSound: String
     @Binding var selectedExt: String
+    @Binding var selectedURL:   URL?
 
     private let sounds: [(name: String, ext: String)] = [
         ("Anticipate", "caf"),
@@ -34,12 +35,15 @@ struct SoundSelectionView: View {
                 Button {
                     selectedSound = sound.name
                     selectedExt   = sound.ext
+                    selectedURL   = nil          // 清空 URL
                 } label: {
                     HStack {
                         Text(sound.name)
                         Spacer()
-                        if sound.name == selectedSound && sound.ext == selectedExt {
-                            Image(systemName: "checkmark")
+                        if selectedURL == nil,
+                           sound.name == selectedSound,
+                           sound.ext  == selectedExt {
+                            Image(systemName:"checkmark")
                                 .foregroundColor(.accentColor)
                         }
                     }
@@ -54,19 +58,43 @@ struct SoundSelectionView: View {
                     Image(systemName: "folder")
                     Text("Choose from Files")
                     Spacer()
+                    if selectedURL != nil {
+                        Image(systemName:"checkmark")
+                            .foregroundColor(.accentColor)
+                    }
                 }
             }
         }
         .navigationTitle("Select Sound")
         .sheet(isPresented: $showingPicker) {
             DocumentPicker { url in
-                // 拷贝到 app 沙盒或直接使用原 URL
-                let name = url.deletingPathExtension().lastPathComponent
-                let ext  = url.pathExtension
-                selectedSound = name
-                selectedExt   = ext
+                // ② 复制到沙盒 /Library/Sounds（让通知也能找到）
+                if let copied = copyToSoundsFolder(url) {
+                    selectedURL   = copied
+                    selectedSound = copied.deletingPathExtension().lastPathComponent
+                    selectedExt   = copied.pathExtension
+                }
                 showingPicker = false
             }
+        }
+    }
+    
+    /// 把用户挑选的文件复制到 Library/Sounds，返回新 URL
+    private func copyToSoundsFolder(_ src: URL) -> URL? {
+        let dstFolder = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Sounds", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dstFolder,
+                                                 withIntermediateDirectories: true)
+        let dstURL = dstFolder.appendingPathComponent(src.lastPathComponent)
+        do {
+            if FileManager.default.fileExists(atPath: dstURL.path) {
+                try FileManager.default.removeItem(at: dstURL)
+            }
+            try FileManager.default.copyItem(at: src, to: dstURL)
+            return dstURL
+        } catch {
+            print("❌ 复制失败：\(error)")
+            return nil
         }
     }
 }
@@ -105,14 +133,21 @@ struct DocumentPicker: UIViewControllerRepresentable {
             onPick(url)
         }
     }
+    
+    
 }
+
+
 struct SoundSelectionView_Previews: PreviewProvider {
     static var previews: some View {
         NavigationView {
             SoundSelectionView(selectedSound: .constant("Anticipate"),
-                selectedExt:
-                .constant("caf"))
+                selectedExt: .constant("caf"),
+                selectedURL:   .constant(nil))
             
         }
     }
 }
+
+
+
