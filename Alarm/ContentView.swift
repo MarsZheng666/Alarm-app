@@ -320,17 +320,10 @@ struct ClockRingView:View {
                         isEndKnobActive   = false
                         activeKnob        = nil
                         
-//                        // 计算当前 endAngle 对应的小时和分钟
-//                        let wakeHourDouble = angleToTime(endAngle)
-//                        let hour   = Int(wakeHourDouble)
-//                        let minute = Int((wakeHourDouble - Double(hour)) * 60)
-//                        
-//                        // 调度本地通知
-//                        scheduleAlarmNotification(hour24: hour, minute: minute)
                         // 计算小时/分钟并写入模型
-                            let wakeHourDouble = angleToTime(endAngle)
-                            model.wakeHour   = Int(wakeHourDouble)
-                            model.wakeMinute = Int((wakeHourDouble - Double(model.wakeHour)) * 60)
+                        let wakeHourDouble = angleToTime(endAngle)
+                        model.wakeHour   = Int(wakeHourDouble)
+                        model.wakeMinute = Int((wakeHourDouble - Double(model.wakeHour)) * 60)
                     }
             )
             
