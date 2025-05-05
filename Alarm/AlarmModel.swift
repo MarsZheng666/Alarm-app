@@ -63,6 +63,9 @@ final class AlarmModel: NSObject, ObservableObject {
             .store(in: &cancellables)
     }
     
+    
+   
+
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - 权限请求
@@ -177,6 +180,7 @@ extension AlarmModel: UNUserNotificationCenterDelegate {
         if snoozeOn {
             AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
         }
+        
     }
 }
 
